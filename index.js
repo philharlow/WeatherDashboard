@@ -201,7 +201,6 @@ function init() {
 			fillForecast(3, forecasts[2]);
 			fillForecast(4, forecasts[3]);
 			fillForecast(5, forecasts[4]);
-			fillLinks(result.link);
 			skycons.play();
 		});
 
