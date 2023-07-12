@@ -258,8 +258,8 @@
             console.log("Found thxgiving to be on: " + thanksgivingDate.month + "/" + thanksgivingDate.day);
 
         }
-		const latitude = "47.818863";
-		const longitude = "-122.185093";
+		const latitude = "47.809892";
+		const longitude = "-122.207502";
 
 
         const apiKey = window.OPEN_WEATHER_API_KEY ?? "uhoh";

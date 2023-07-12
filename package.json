@@ -4,17 +4,14 @@
   "description": "",
   "main": "src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "build": "webpack --mode=development"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "copy-webpack-plugin": "^11.0.0",
-    "html-webpack-plugin": "^5.5.3",
     "webpack": "^5.88.1",
-    "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^4.15.1"
+    "webpack-cli": "^5.1.4"
   },
   "dependencies": {
     "dot-env": "0.0.1",
