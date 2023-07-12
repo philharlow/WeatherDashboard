@@ -2,7 +2,7 @@
 	'use strict';
 	/*global $, moment*/
 
-    const apiKey = window.API_KEY ?? "uhoh";
+    const apiKey = window.OPEN_WEATHER_API_KEY ?? "uhoh";
     console.log("API_KEY: ", apiKey);
     
 	/*************************************************************************/

@@ -1,4 +1,4 @@
-if (process.env.API_KEY) {
-    window.API_KEY = process.env.API_KEY;
+if (process.env.OPEN_WEATHER_API_KEY) {
+    window.OPEN_WEATHER_API_KEY = process.env.OPEN_WEATHER_API_KEY;
 }
-console.log("API_KEY is", process.env.API_KEY);
+console.log("OPEN_WEATHER_API_KEY is", process.env.OPEN_WEATHER_API_KEY);
