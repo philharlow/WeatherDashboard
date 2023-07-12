@@ -1,56 +1,31 @@
-// WeatherDashboard
+(function() {
+	'use strict';
+	/*global $, moment*/
 
-
-function isValidKey(val)
-{
-	return val !== null && val.length > 0;
-}
-
-let searchParams = new URLSearchParams(window.location.search);
-if (searchParams.has('reset'))
-{
-	window.localStorage.setItem('apiKey', '');
-	window.localStorage.setItem('latitude', '');
-	window.localStorage.setItem('longitude', '');
-}
-
-let apiKey = window.localStorage.getItem('apiKey');
-let latitude = window.localStorage.getItem('latitude');
-let longitude = window.localStorage.getItem('longitude');
-
-function tryLoad()
-{
-	if (isValidKey(apiKey) && isValidKey(latitude) && isValidKey(longitude))
-	{
-		init()
-		return true;
-	}
-	else
-		return false;
-}
-
-if (tryLoad() === false)
-{
-	apiKey = prompt("Enter DarkSky API Key:");
-	latitude = prompt("Enter latitude:");
-	longitude = prompt("Enter longitude:");
+    const apiKey = window.API_KEY ?? "uhoh";
+    console.log("API_KEY: ", apiKey);
+    
+	/*************************************************************************/
+	/*****************************************************/
+	/*********************************/
+	// USER EDITABLE LINES - Change these to match your location and preferences!
+    
+	// Your temperature unit measurement
+	// This bit is simple, 'c' for Celcius, and 'f' for Fahrenheit
+	var unit = 'f';
 	
-	window.localStorage.setItem('apiKey', apiKey);
-	window.localStorage.setItem('latitude', latitude);
-	window.localStorage.setItem('longitude', longitude);
-	if (tryLoad())
-		alert("Saved! Use ?reset if you need to reinput the data");
-	else
-		alert("Invalid data! Reload the page to try again.");
-}
+	// Format for date and time
+	var formatTime = 'h:mm:ss a'
+	var formatDate = 'dddd, MMMM Do'
 
-
-
-function init() {
     var skycons = new Skycons({ "color": "white" });
 
-	var waitBetweenWeatherQueriesMS = 900000;
+	var waitBetweenWeatherQueriesMS = 20 * 60 * 1000; // 20min
 
+	// You're done!
+	/*********************************/
+	/*****************************************************/
+    /*************************************************************************/
     function replaceAll(str, find, replace)
     {
         return str.replace(new RegExp(find, 'g'), replace);
@@ -65,13 +40,13 @@ function init() {
     
     function updateTempRange(results, currently)
     {
-        currentTemp = currently.temperature
+        currentTemp = currently.temp
         tempRangeMax = Math.max(80, currentTemp);
         tempRangeMin = Math.min(40, currentTemp);
         for (var i = 0; i < 5; i++)
         {
-            tempRangeMax = Math.max(tempRangeMax, results[i].temperatureHigh);
-            tempRangeMin = Math.min(tempRangeMin, results[i].temperatureLow);
+            tempRangeMax = Math.max(tempRangeMax, results[i].temp.max);
+            tempRangeMin = Math.min(tempRangeMin, results[i].temp.min);
         }
 
         tempRangeSpan = Math.round(tempRangeMax - tempRangeMin);
@@ -96,22 +71,57 @@ function init() {
         return css;
     }
 
-	function fillCurrently(currently) {
+    function getSkyconForWeatherApiIcon(icon) {
+        //const icons = ['CLEAR_DAY', 'CLEAR_NIGHT', 'PARTLY_CLOUDY_DAY', 'PARTLY_CLOUDY_NIGHT', 'CLOUDY', 'RAIN', 'SLEET', 'SNOW', 'WIND', 'FOG'];
+        switch (icon) {
+            case "01d": return "CLEAR_DAY";
+            case "01n": return "CLEAR_NIGHT";
+            case "02d": return "PARTLY_CLOUDY_DAY";
+            case "02n": return "PARTLY_CLOUDY_NIGHT";
+            case "03d":
+            case "03n":
+            case "04d":
+            case "04n":
+                return "CLOUDY";
+            case "09d":
+            case "09n":
+            case "10d":
+            case "10n":
+                return "RAIN";
+            case "11d":
+            case "11n":
+                return "SLEET";
+            case "13d":
+            case "13n":
+                return "SNOW";
+            case "50d":
+            case "50n":
+                return "FOG";
+        }
+        return "CLEAR_DAY";
+    }
+
+
+	function fillCurrently(currently, forecast) {
 		var desc = $('#currently .desc');
 		var temp = $('#currently .temp');
 
-		skycons.set(iconCanvases[0], currently.icon);
+		skycons.set(iconCanvases[0], getSkyconForWeatherApiIcon(currently.weather[0].icon));
 		
 		desc.html(currently.summary);
 		
-		currentTemp = Math.round(currently.temperature);
+		currentTemp = Math.round(currently.temp);
 		if (temp.length) {
 			temp.html(currentTemp+"°");
         }
 
+
         var cell = $("#currently");
-        var color = "#661111";
-        cell.css("background", getGradient(currently.temperature, parseInt(currently.temperature) + 1, color));
+        var color = "rgb({color}, {color}, {color})";
+        var colorVal = Math.round(lerp(currently.temp, tempRangeMin, tempRangeMax, 20, 100));// Math.round(getTempPercentage(forecast.temp.max) * 0.55);
+        color = replaceAll(color, "{color}", colorVal);
+        var gradient = getGradient(forecast.temp.min, currently.temp, color);
+        cell.css("background", gradient);
     }
     
     function lerp(val, minRange, maxRange, minOutput, maxOutput)
@@ -121,7 +131,7 @@ function init() {
     
     function isWeekend(day)
     {
-        return day > 5;//day.toLowerCase() == "sat" || day.toLowerCase() == "sun";// || day.toLowerCase() == "fri";
+        return day == 0 || day == 6;//day.toLowerCase() == "sat" || day.toLowerCase() == "sun";// || day.toLowerCase() == "fri";
 	}
 	var weekday = new Array(7);
 	weekday[0] =  "Sunday";
@@ -138,7 +148,40 @@ function init() {
 	shortWeekday[3] = "Wed";
 	shortWeekday[4] = "Thurs";
 	shortWeekday[5] = "Fri";
-	shortWeekday[6] = "Sat";
+    shortWeekday[6] = "Sat";
+
+    let easterDate = { month: 0, day: 0, icon: "🐇" }; // easter
+    let thanksgivingDate = { month: 11, day: 0, icon: "🦃" }; // thxgiving
+
+    let dayIcons = [
+        { month: 7, day: 14, icon: "🎂" }, // Bellina's bday
+        { month: 6, day: 28, icon: "🎉" }, // Phil's bday
+        { month: 12, day: 25, icon: "🎄" }, // xmas
+        { month: 10, day: 31, icon: "🎃" }, // halloween
+        easterDate,
+        thanksgivingDate,
+        { month: 3, day: 17, icon: "☘️" }, // st paddys
+        { month: 12, day: 31, icon: "🥳" }, // NYE
+        { month: 1, day: 1, icon: "🎉" }, // NYD
+        { month: 2, day: 14, icon: "❤️" }, // Valentines
+        { month: 2, day: 2, icon: "🦔" }, // Groundhog
+        { month: 7, day: 4, icon: "🇺🇸" }, // Independence
+        { month: 11, day: 11, icon: "🎖️" }, // Veterans
+        { month: 2, day: 1, year: 2022, icon: "🐉" }, // Chinese New Year
+        { month: 1, day: 22, year: 2023, icon: "🐉" }, // Chinese New Year
+        { month: 2, day: 10, year: 2024, icon: "🐉" }, // Chinese New Year
+        { month: 1, day: 29, year: 2025, icon: "🐉" }, // Chinese New Year
+        { month: 2, day: 17, year: 2026, icon: "🐉" }, // Chinese New Year
+        { month: 2, day: 6, year: 2027, icon: "🐉" }, // Chinese New Year
+        { month: 1, day: 26, year: 2028, icon: "🐉" }, // Chinese New Year
+    ];
+    
+    // fathers day
+    // mothers day
+    // labor day
+    // cino de mayo
+    // mardi gras
+    // mlk day
 
 	function fillForecast(day, forecast) {
 		// Choose one of the five forecast cells to fill
@@ -150,11 +193,12 @@ function init() {
         
         var cell = $(forecastCell);
         var color = "rgb({color}, {color}, {color})";
-        var colorVal = Math.round(lerp(forecast.temperatureHigh, tempRangeMin, tempRangeMax, 20, 100));// Math.round(getTempPercentage(forecast.temperatureHigh) * 0.55);
+        var colorVal = Math.round(lerp(forecast.temp.max, tempRangeMin, tempRangeMax, 20, 100));// Math.round(getTempPercentage(forecast.temp.max) * 0.55);
         color = replaceAll(color, "{color}", colorVal);
 		var forecastTime = new Date(0);
-		forecastTime.setUTCSeconds(forecast.time);
-		var gradient = getGradient(forecast.temperatureLow, forecast.temperatureHigh, color, isWeekend(forecastTime.getDay()));
+        // console.log("forecast: ", forecast)
+		forecastTime.setUTCSeconds(forecast.dt);
+		var gradient = getGradient(forecast.temp.min, forecast.temp.max, color, isWeekend(forecastTime.getDay()));
         cell.css("background", gradient);
         //cell.css("border-color", isWeekend(forecast.day) ? "white" : "#222222");
         //cell.css("border-width", isWeekend(forecast.day) ? "2px" : "1px");
@@ -162,7 +206,12 @@ function init() {
         // If this is the first cell, call it "Today" instead of the day of the week
         if (dayDiv.length)
         {
-            dayDiv.html(shortWeekday[forecastTime.getDay()]);
+            let inner = shortWeekday[forecastTime.getDay()];
+            dayIcons.forEach(icon => {
+                if (icon.day == forecastTime.getDate() && icon.month == forecastTime.getMonth() + 1 && (!icon.year || icon.year == (forecastTime.getYear() + 1900)))
+                    inner = icon.icon + " " + inner;
+            });
+            dayDiv.html(inner);
             if (isWeekend(forecastTime.getDay()))
                 dayDiv.addClass("weekend");
             else
@@ -170,37 +219,71 @@ function init() {
         }
 
 		// Insert the forecast details. Icons may be changed by editing the icons array.
-		skycons.set(iconCanvases[day], forecast.icon);
+		skycons.set(iconCanvases[day], getSkyconForWeatherApiIcon(forecast.weather[0].icon));
 		
 		//desc.html(forecast.summary);
 		
 		if (high.length) {
-			high.html(Math.round(forecast.temperatureHigh) + "°");
+			high.html(Math.round(forecast.temp.max) + "°");
 		}
 		if (low.length) {
-			low.html(Math.round(forecast.temperatureLow) + "°");
+			low.html(Math.round(forecast.temp.min) + "°");
 		}
-	}
+    }
 
-	function queryWeather() {
-		var url = 'https://api.darksky.net/forecast/' + apiKey + '/' + latitude + ',' + longitude + '?exclude=hourly,minutely,flags';
+    
+    let lastYear = 0;
+    function queryWeather()
+    {
+        let now = new Date();
+        if (now.getFullYear() != lastYear)
+        {
+            // Calc easter
+            lastYear = now.getFullYear();
+            let Y = lastYear;
+            var C = Math.floor(Y / 100);
+            var N = Y - 19 * Math.floor(Y / 19);
+            var K = Math.floor((C - 17) / 25);
+            var I = C - Math.floor(C / 4) - Math.floor((C - K) / 3) + 19 * N + 15;
+            I = I - 30 * Math.floor((I / 30));
+            I = I - Math.floor(I / 28) * (1 - Math.floor(I / 28) * Math.floor(29 / (I + 1)) * Math.floor((21 - N) / 11));
+            var J = Y + Math.floor(Y / 4) + I + 2 - C + Math.floor(C / 4);
+            J = J - 7 * Math.floor(J / 7);
+            var L = I - J;
+            var M = 3 + Math.floor((L + 40) / 44);
+            var D = L + 28 - 31 * Math.floor(M / 4);
+            easterDate.month = M;
+            easterDate.day = D;
+            console.log("Found easter to be on: " + easterDate.month + "/" + easterDate.day);
+            
+            let lastOfNov = new Date(lastYear, 10, 30).getDay();
+            thanksgivingDate.day = (lastOfNov >= 4 ? 34 : 27) - lastOfNov;
+            console.log("Found thxgiving to be on: " + thanksgivingDate.month + "/" + thanksgivingDate.day);
+
+        }
+		const latitude = "47.818863";
+		const longitude = "-122.185093";
+
+		var url = `https://api.openweathermap.org/data/3.0/onecall?lat=${latitude}&lon=${longitude}&units=imperial&exclude=minutely,hourly,alert&appid=${apiKey}`;
 		$.ajax({
 			type: 'GET',
-            url: 'https://cors-anywhere.herokuapp.com/' + url,
+            url: url,
 			dataType: 'json'
 		}).done(function (result) {
 			// Drill down into the returned data to find the relevant weather information
-            var forecasts = result.daily.data;
-            
-            // update ranges
+      //console.log("got response", result);
+            var forecasts = result.daily;
 
-            updateTempRange(forecasts, result.currently);
-			fillCurrently(result.currently);
+                    // update ranges
+
+            updateTempRange(forecasts, result.current);
+			fillCurrently(result.current, forecasts[0]);
 			fillForecast(1, forecasts[0]);
 			fillForecast(2, forecasts[1]);
 			fillForecast(3, forecasts[2]);
 			fillForecast(4, forecasts[3]);
 			fillForecast(5, forecasts[4]);
+			//fillLinks(result.link);
 			skycons.play();
 		});
 
@@ -244,7 +327,7 @@ function init() {
             }
         });
 	});
-}
+}());
 
 var isTimeMenuOpen = false;
 
@@ -260,8 +343,10 @@ function updateTime()
 {
     if (isTimeMenuOpen)
         return;
+
+    let now = new Date();
 	// Set the current time and date on the clock
-    $('.placeholder').html(new Date().toLocaleTimeString());
+    $('.placeholder').html(now.toLocaleTimeString());
     //$('#date').val(new Date().toLocaleDateString());
 }
 
