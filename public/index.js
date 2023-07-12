@@ -1,9 +1,6 @@
 (function() {
 	'use strict';
 	/*global $, moment*/
-
-    const apiKey = window.OPEN_WEATHER_API_KEY ?? "uhoh";
-    console.log("API_KEY: ", apiKey);
     
 	/*************************************************************************/
 	/*****************************************************/
@@ -264,6 +261,8 @@
 		const latitude = "47.818863";
 		const longitude = "-122.185093";
 
+
+        const apiKey = window.OPEN_WEATHER_API_KEY ?? "uhoh";
 		var url = `https://api.openweathermap.org/data/3.0/onecall?lat=${latitude}&lon=${longitude}&units=imperial&exclude=minutely,hourly,alert&appid=${apiKey}`;
 		$.ajax({
 			type: 'GET',
